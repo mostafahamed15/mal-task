@@ -14,3 +14,5 @@ Times below are actual Git author timestamps (UTC+02:00). This log records compl
 - 2026-11-18T12:43:03+02:00  docs: describe scaling and authorization lifecycle
 
 - 2026-11-18 12:43:03 EET Africa/Cairo: Created this log from the recorded commit history. Source compilation and independent Node.js assertion checks passed. Vitest was not run because dependencies could not be downloaded in this environment.
+
+- 2026-11-18 12:44:31 EET Africa/Cairo: Compiled application and test TypeScript using a locally available compiler and a temporary Vitest type shim; ran the nine regular test cases with a temporary Node test/assert adapter (all passed). The limitation case failed as intended: APPROVED instead of DECLINED. This did not run the actual Vitest package. Corrected the half-even example in the source contract: 462.50 is a tie; 465.00 is not.

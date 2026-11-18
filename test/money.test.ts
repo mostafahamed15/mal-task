@@ -16,5 +16,6 @@ describe('money', () => {
     expect(dailyInterest(parse('465.00', 'AED'))).toBe(19n);
     expect(dailyInterest(parse('37.50', 'AED'))).toBe(2n);
     expect(dailyInterest(parse('37.49', 'AED'))).toBe(1n);
+    expect(dailyInterest(parse('462.50', 'AED'))).toBe(19n);
   });
 });

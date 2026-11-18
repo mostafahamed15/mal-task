@@ -22,8 +22,12 @@ describe('event rules', () => {
     l.apply({ id: 'r', type: 'REVERSAL', account: 'A', booked: 1, value: 1, target: 'd' });
     l.apply({ id: 'r2', type: 'REVERSAL', account: 'A', booked: 1, value: 1, target: 'd' });
     l.apply({ id: 's', type: 'SETTLEMENT', account: 'A', booked: 1, value: 1, authId: 'missing', amount: '5.00' });
-    expect(l.balance('A', 1)).toBe(0n);
-    expect(l.entries).toHaveLength(2);
-    expect(l.log).toHaveLength(2);
+    l.apply({ id: 'c', type: 'CREDIT', account: 'A', booked: 1, value: 1, amount: '20.00' });
+    l.apply({ id: 'a', type: 'AUTHORIZATION', account: 'A', booked: 1, value: 1, authId: 'approved', amount: '10.00' });
+    l.apply({ id: 's2', type: 'SETTLEMENT', account: 'A', booked: 1, value: 1, authId: 'approved', amount: '11.00' });
+    expect(l.balance('A', 1)).toBe(2000n);
+    expect(l.entries).toHaveLength(3);
+    expect(l.auths.get('approved')?.at(-1)?.state).toBe('APPROVED');
+    expect(l.log).toHaveLength(3);
   });
 });

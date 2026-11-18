@@ -12,3 +12,5 @@
 | Discard the remainder between rounded daily accruals and capitalization | Reject | Capitalization is defined as the sum of rounded daily accruals; there is no such remainder. |
 
 The v2 approach recorded in the supplied contract reconciled fees during each input batch and needed intra-batch views to express criterion 1. It was abandoned in favor of day-close reconciliation. Interest on balances as known at each close was also considered and rejected; see AMBIGUITIES.md.
+
+The source contract suggests half-even would round daily interest on 465.00 AED to 0.18. This is incorrect: 465.00 / 2,500 = 0.186, which rounds to 0.19 under both half-up and half-even. A genuine tie is 462.50 / 2,500 = 0.185; half-even yields 0.18 and half-up yields 0.19.

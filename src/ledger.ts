@@ -50,7 +50,7 @@ export class Ledger {
     if (event.type === 'REVERSAL') {
       const target = this.entries.find(e => e.id === event.target && e.source === event.target);
       if (!target || target.account !== event.account || target.value !== event.value ||
-          this.entries.some(e => e.reverses === event.target) || !this.debits.has(event.target)) {
+          this.entries.some(e => e.feeDay === undefined && e.reverses === event.target) || !this.debits.has(event.target)) {
         this.reject(event, 'target must be an unreversed debit on the same account and value day'); return;
       }
       append(-target.amount, { reverses: event.target });
@@ -88,10 +88,10 @@ export class Ledger {
     for (const [account, currency] of Object.entries(this.accounts)) {
       for (let d = 1; d <= day; d++) {
         const feeId = 'FEE:' + account + ':' + d;
-        const assessment = this.entries.find(e => e.id === feeId && e.source === 'FEE');
-        const reversed = this.entries.some(e => e.reverses === feeId);
+        const assessment = this.entries.find(e => e.account === account && e.feeDay === d && e.source === 'FEE');
+        const reversed = this.entries.some(e => e.account === account && e.feeDay === d && e.source === 'FEE_REVERSAL' && e.reverses === feeId);
         const preFee = this.entries.filter(e => e.account === account && e.value <= d &&
-          (e.source !== 'FEE' && e.source !== 'FEE_REVERSAL' || e.feeDay! < d))
+          (e.feeDay === undefined || e.feeDay < d))
           .reduce((sum, e) => sum + e.amount, 0n);
         if (preFee < 0n && !assessment) {
           if (currency !== 'AED') throw new Error('Fee currency unsupported for ' + account);

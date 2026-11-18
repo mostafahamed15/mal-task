@@ -1,0 +1,20 @@
+{
+  "name": "account-ledger-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "replay": "tsx src/replay.ts",
+    "test": "vitest run test/ledger.test.ts",
+    "test:limitation": "vitest run test/limitation.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "vitest": "^3.0.5"
+  }
+}

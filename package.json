@@ -8,7 +8,7 @@
   },
   "scripts": {
     "replay": "tsx src/replay.ts",
-    "test": "vitest run test/ledger.test.ts",
+    "test": "vitest run --exclude test/limitation.test.ts",
     "test:limitation": "vitest run test/limitation.test.ts",
     "typecheck": "tsc --noEmit"
   },

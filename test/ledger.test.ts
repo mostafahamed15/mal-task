@@ -1,19 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { Ledger, type Day } from '../src/ledger.js';
+import { Ledger } from '../src/ledger.js';
+import { run } from '../src/run.js';
 import { accounts, stream } from '../src/stream.js';
 
 describe('reference replay', () => {
   it('matches daily balances, historical decisions, fees and corrected interest', () => {
     const ledger = new Ledger(accounts);
     let preFeeDay2 = 0n;
-    for (const event of stream) {
-      while (ledger.closed < event.booked - 1) {
-        if (ledger.closed === 4) preFeeDay2 = ledger.balance('ACC-001', 2);
-        ledger.closeDay((ledger.closed + 1) as Day);
-      }
-      ledger.apply(event);
-    }
-    while (ledger.closed < 6) ledger.closeDay((ledger.closed + 1) as Day);
+    run(ledger, stream, { beforeClose(day, state) {
+      if (day === 5) preFeeDay2 = state.balance('ACC-001', 2);
+    } });
+    expect(stream.find(e => e.id === 'E6')).toMatchObject({ amount: '180.00' });
+    expect(stream.find(e => e.id === 'E10')).toMatchObject({ booked: 5, value: 5 });
+    expect(stream.findIndex(e => e.id === 'E9')).toBeLessThan(stream.findIndex(e => e.id === 'E10'));
     expect(preFeeDay2).toBe(-37000n);
     expect(ledger.reports.map(r => r.balances['ACC-001'])).toEqual([25000n, 25000n, 65000n, 46500n, -23000n, 46500n]);
     expect(ledger.reports.map(r => r.balances['ACC-002'])).toEqual([0n, 0n, 0n, 0n, 0n, 10000n]);

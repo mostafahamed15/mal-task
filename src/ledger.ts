@@ -98,25 +98,32 @@ export class Ledger {
     if (this.finalized) throw new Error('Ledger has already been finalized');
     if (day > this.#closed + 1 || day < this.#closed) throw new Error('Days must close in order');
     const start = this.#entries.length;
+    const pending: Entry[] = [];
+    const pendingLogs: string[] = [];
+    const pendingReinstatements: string[] = [];
     for (const [account, currency] of Object.entries(this.accounts)) {
       for (let d = 1; d <= day; d++) {
         const feeId = 'FEE:' + account + ':' + d;
-        const assessment = this.#entries.find(e => e.account === account && e.feeDay === d && e.source === 'FEE');
-        const reversed = this.#entries.some(e => e.account === account && e.feeDay === d && e.source === 'FEE_REVERSAL' && e.reverses === feeId);
-        const preFee = this.#entries.filter(e => e.account === account && e.value <= d &&
+        const entries = [...this.#entries, ...pending];
+        const assessment = entries.find(e => e.account === account && e.feeDay === d && e.source === 'FEE');
+        const reversed = entries.some(e => e.account === account && e.feeDay === d && e.source === 'FEE_REVERSAL' && e.reverses === feeId);
+        const preFee = entries.filter(e => e.account === account && e.value <= d &&
           (e.feeDay === undefined || e.feeDay < d))
           .reduce((sum, e) => sum + e.amount, 0n);
         if (preFee < 0n && !assessment) {
           if (currency !== 'AED') throw new Error('Fee currency unsupported for ' + account);
-          this.#entries.push({ id: feeId, account, amount: -FEE, value: d as Day, source: 'FEE', feeDay: d as Day });
+          pending.push({ id: feeId, account, amount: -FEE, value: d as Day, source: 'FEE', feeDay: d as Day });
         } else if (preFee >= 0n && assessment && !reversed) {
-          this.#entries.push({ id: 'FEE_REVERSAL:' + account + ':' + d, account, amount: -assessment.amount, value: d as Day, source: 'FEE_REVERSAL', feeDay: d as Day, reverses: feeId });
+          pending.push({ id: 'FEE_REVERSAL:' + account + ':' + d, account, amount: -assessment.amount, value: d as Day, source: 'FEE_REVERSAL', feeDay: d as Day, reverses: feeId });
         } else if (preFee < 0n && assessment && reversed && !this.reinstatementLogged.has(feeId)) {
-          this.#log.push('FEE_REINSTATEMENT_UNSUPPORTED: ' + account + ' day ' + d);
-          this.reinstatementLogged.add(feeId);
+          pendingLogs.push('FEE_REINSTATEMENT_UNSUPPORTED: ' + account + ' day ' + d);
+          pendingReinstatements.push(feeId);
         }
       }
     }
+    this.#entries.push(...pending);
+    this.#log.push(...pendingLogs);
+    for (const id of pendingReinstatements) this.reinstatementLogged.add(id);
     this.#closed = day;
     const balances = Object.fromEntries(Object.keys(this.accounts).map(a => [a, this.balance(a, day)]));
     const authorizations = Object.fromEntries([...this.#auths].map(([id, h]) => [id, { ...h.at(-1)! }]));

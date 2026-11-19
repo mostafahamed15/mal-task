@@ -41,6 +41,17 @@ describe('reference replay', () => {
     l.apply({ id: 'd', type: 'DEBIT', account: 'B', booked: 1, value: 1, amount: '1.000' });
     expect(() => l.closeDay(1)).toThrow('Fee currency unsupported');
   });
+  it('leaves the whole close unchanged when an unsupported fee aborts it', () => {
+    const l = new Ledger({ A: 'AED', B: 'BHD' });
+    l.apply({ id: 'da', type: 'DEBIT', account: 'A', booked: 1, value: 1, amount: '1.00' });
+    l.apply({ id: 'db', type: 'DEBIT', account: 'B', booked: 1, value: 1, amount: '1.000' });
+    const before = l.entries;
+    expect(() => l.closeDay(1)).toThrow('Fee currency unsupported');
+    expect(l.entries).toEqual(before);
+    expect(l.log).toEqual([]);
+    expect(l.reports).toEqual([]);
+    expect(l.closed).toBe(0);
+  });
   it('logs an unsupported fee reinstatement once without adding an assessment', () => {
     const l = new Ledger({ A: 'AED' });
     l.apply({ id: 'd', type: 'DEBIT', account: 'A', booked: 1, value: 1, amount: '1.00' });

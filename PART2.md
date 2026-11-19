@@ -2,7 +2,7 @@
 
 ## At 100 times the reference volume
 
-Every balance scans the entries. For A accounts, N entries, and a close on day d, reconciliation scans the entries repeatedly for each account/day, so a close is O(A * d * N). Multiple closes repeat that work; the growing entries and log are unbounded. Active holds are also scanned during authorization. At 100 times the stream, latency and memory become concerns, even with the six-day horizon fixed.
+Every balance scans the entries. For A accounts, N entries, and a close on day d, reconciliation scans the entries repeatedly for each account/day, so a close is O(A * d * N). Multiple closes repeat that work; the growing entries and log are unbounded. Active holds are also scanned during authorization. At 100 times the stream, day close is the first likely latency bottleneck: it repeatedly scans the growing entries for every account and historical day. This is a complexity-based expectation, not a benchmark. Entries and log also grow without bound and create a memory risk.
 
 A modest next step is per-account, per-value-day totals, with cached cumulative totals invalidated from the earliest value day touched by a backdated posting. Keep the append-only source entries and rebuild or reconcile the cache from them. Durable storage, indexed access, bounded logs and concurrency control would still be needed in a real service.
 
@@ -16,8 +16,32 @@ A practical control is a configured backdating window with maker-checker approva
 
 ## Authorization lifecycle
 
-An approved hold can end in a settlement (the full remaining hold is released here), expiry, merchant void or cancellation, or account closure. A request can be declined at authorization. Partial capture is accepted within the hold but the unused remainder is released; multiple captures are not supported. Over-capture and settlement without an approved matching authorization are rejected. Expiry, void, cancellation and closure are not modeled, so an approved hold without a settlement remains active indefinitely.
+| Scenario | Current behavior | Production behavior or risk |
+| --- | --- | --- |
+| Declined at request | Record DECLINED, reserve the ID, create no hold or entry. Auth-B is declined in the reference stream. | Make the decline observable and do not reserve funds. |
+| Approved but never settled | The hold remains active indefinitely. This is possible for an approved authorization; it does not happen to the declined Auth-B in the reference stream. | Expire or otherwise resolve the hold according to the applicable network and product rules; otherwise funds remain unnecessarily unavailable. |
+| Over-capture | Reject; no debit is posted and the authorization stays APPROVED. | Handle any permitted tolerance under explicit network and product rules, or reject and retain the original hold until resolved. |
+| Settlement on another account | Reject; no debit is posted and the original authorization stays APPROVED. | Match settlement to the correct account and authorization, and handle reconciliation errors. |
+| Duplicate authorization ID | Reject the later event, including across accounts; the original state is unchanged. | Enforce the chosen ID scope durably and handle retries consistently. |
+| Expiry | Not modeled. | Release the remaining hold at the applicable expiry and retain history. |
+| Merchant void or cancellation | Not modeled. | Verify the request and release the relevant hold, retaining an audit trail. |
+| Account closure | Not modeled. | Resolve or release outstanding holds under the account and network rules before closure. |
+| Partial capture | Accept at or below the hold and release the entire remainder. | Support any product-specific multiple captures and release policy. |
+| Unknown or already settled authorization | Reject settlement with no debit. | Reconcile missing or duplicate network messages under an explicit policy. |
 
-## Deliberate cuts
+The production actions above are design recommendations, not claims that this PoC implements them or that the supplied review specifies all network rules.
 
-No persistence, concurrency, double-entry accounting, FX, multi-capture, authorization expiry, or production controls. A reversed fee cannot be reinstated. Interest is calculated once at the end of the six-day window. Fees are reconciled only at close, so pending backdated fees are not considered in an intervening authorization. Logs and entries remain in memory for the life of the process.
+## Deliberate cuts and deferred risks
+
+| Cut | Risk deferred |
+| --- | --- |
+| No persistence or durable audit trail | A process restart loses balances, holds, decisions and corrections. |
+| No concurrency control | Parallel operations can race and overspend or duplicate postings. |
+| Single-entry accounting | No balancing counter-entries or double-entry reconciliation; omissions can go undetected. |
+| No FX | Cross-currency fees or transactions cannot be safely priced or reconciled. |
+| No multi-capture, expiry, void or closure flows | Valid card-network lifecycles cannot be processed correctly; unresolved approved holds can leak. |
+| Fee reinstatement unsupported | A fee made due again after its reversal is only logged, so fees can be understated. |
+| Reconcile fees only at close | An authorization may be approved using funds needed for pending backdated fees. |
+| Interest only at the end of the six-day window | No accurate periodic capitalization or mid-window interest statements. |
+| In-memory full scans and unbounded logs | Latency grows with history and memory can exhaust. |
+| No production access, approval and recovery controls | Unauthorized changes, undetected errors, and unrecoverable outages become possible. |

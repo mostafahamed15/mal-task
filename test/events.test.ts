@@ -30,4 +30,24 @@ describe('event rules', () => {
     expect(l.auths.get('approved')?.at(-1)?.state).toBe('APPROVED');
     expect(l.log).toHaveLength(3);
   });
+  it('cannot change ledger history or authorization state through public snapshots', () => {
+    const l = new Ledger({ A: 'AED' });
+    l.apply({ id: 'c', type: 'CREDIT', account: 'A', booked: 1, value: 1, amount: '100.00' });
+    l.apply({ id: 'a', type: 'AUTHORIZATION', account: 'A', booked: 1, value: 1, authId: 'hold', amount: '20.00' });
+    const entries = l.entries as unknown as { amount: bigint }[];
+    entries[0].amount = 999999n;
+    entries.splice(0);
+    const auths = l.auths as unknown as Map<string, { state: string }[]>;
+    auths.get('hold')![0].state = 'DECLINED';
+    auths.clear();
+    (l.log as string[]).push('fake error');
+    expect(l.balance('A', 1)).toBe(10000n);
+    expect(l.entries).toHaveLength(1);
+    expect(l.auths.get('hold')?.at(-1)?.state).toBe('APPROVED');
+    expect(l.log).toHaveLength(0);
+    const close = l.closeDay(1);
+    close.balances.A = -1n;
+    expect(l.reports[0].balances.A).toBe(10000n);
+  });
+
 });

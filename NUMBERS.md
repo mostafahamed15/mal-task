@@ -1,16 +1,17 @@
 # Numbers and rounding
 
-The supplied v3 contract states the values below. The original brief was not available alongside it, so classifications as brief-given versus chosen are based on the contract, not independent verification.
+The supplied v3 architecture contract states the constants below. The later review reports that the brief sets E6 to 180.00 AED and books E10 on Day 5; the original brief itself was not supplied for this review, so those two details are attributed to the review rather than independently verified.
 
-| Value | Origin and reason |
+| Value | Origin, choice and why not half |
 | --- | --- |
-| AED 25.00 overdraft fee | Brief figure as represented in the contract; assessed for each negative pre-fee day. |
-| 0.04% daily interest = 1/2500 | Brief figure as represented in the contract; division by 2500 avoids floating point. |
-| AED 2 and BHD 3 decimal places | Currency precision specified by the contract; amounts beyond the currency precision are rejected. |
-| Half-up daily rounding | Contract choice: 46,500 minor units / 2,500 = 18.6, yielding 19; 3,750 / 2,500 = 1.5, yielding 2. Half-even is a different policy, not used here (for example 462.50 at 0.04% is 0.185, which would become 0.18 under half-even). |
-| 1,250 minor-unit numerator offset | Exactly half of the 2,500 divisor: (positive minor balance + 1,250) / 2,500 implements half-up integer division. |
-| Days 1 through 6 | Reference window specified by the contract. |
-| Three instalments for 10.000 BHD | Reference input from the contract. The integer remainder goes to the earliest parts: 3.334, 3.333, 3.333. Three times 3.334 would create 0.002 BHD. |
-| E6 amount 10.00 AED | Assumed for this implementation: the supplied contract specifies an unknown Auth-Z but not its settlement amount. It is rejected before any posting, so this assumption does not affect balances. |
+| AED 25.00 fee (2,500 fils) | Given by the contract as a brief figure. Halving it would change the specified fee, not implement it. |
+| 0.04% daily interest = 1/2,500 | Given by the contract as a brief figure. Half the rate, 0.02%, underpays relative to that specification. The divisor is the exact reciprocal, not an independent tuning parameter. |
+| AED 2 and BHD 3 decimal places | Currency precisions specified by the contract. Reducing precision would lose valid minor units and would not implement the specified currencies. |
+| Half-up daily rounding | Chosen policy. AED 465.00 / 2,500 = 0.186, which rounds to 0.19. Both half-up and half-even round that example to 0.19; 462.50 / 2,500 = 0.185 is a genuine tie: half-up gives 0.19 and half-even gives 0.18. |
+| 1,250 numerator offset | Half of the 2,500 divisor implements half-up integer rounding. Halving the offset to 625 would round up only from a fraction of 0.75, underpaying values between 0.5 and 0.75. |
+| Days 1 through 6 | The reference window in the contract; using only three days omits the last three days, including the correction. |
+| Three instalments | Reference count in the contract; half the count is not the specified split. 10.000 BHD splits into 3.334, 3.333 and 3.333. |
+| Remainder to earliest parts | A deterministic choice: allocate one minor unit to each of the first remainder parts. Assigning the extra units to the last parts would also preserve the total but is a different policy. |
+| E6 amount: 180.00 AED | Reported by the supplied review as the brief input. E6 is rejected because Auth-Z is unknown, so its amount does not affect the balance. |
 
-Capitalization is the exact sum of rounded daily accruals. No separate remainder exists to discard. Negative daily balances earn zero interest.
+Capitalization is exactly the sum of rounded daily accruals. No separate remainder exists to discard. Negative balances earn zero interest.

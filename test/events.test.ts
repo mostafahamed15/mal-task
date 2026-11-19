@@ -50,4 +50,16 @@ describe('event rules', () => {
     expect(l.reports[0].balances.A).toBe(10000n);
   });
 
+  it('retains the original hold when an ID is reused or settlement names another account', () => {
+    const l = new Ledger({ A: 'AED', B: 'AED' });
+    l.apply({ id: 'c', type: 'CREDIT', account: 'A', booked: 1, value: 1, amount: '100.00' });
+    l.apply({ id: 'a', type: 'AUTHORIZATION', account: 'A', booked: 1, value: 1, authId: 'shared', amount: '20.00' });
+    l.apply({ id: 'dup', type: 'AUTHORIZATION', account: 'B', booked: 1, value: 1, authId: 'shared', amount: '1.00' });
+    l.apply({ id: 'wrong', type: 'SETTLEMENT', account: 'B', booked: 1, value: 1, authId: 'shared', amount: '1.00' });
+    expect(l.auths.get('shared')?.at(-1)?.state).toBe('APPROVED');
+    expect(l.auths.get('shared')?.at(-1)?.account).toBe('A');
+    expect(l.entries).toHaveLength(1);
+    expect(l.log).toHaveLength(2);
+  });
+
 });
